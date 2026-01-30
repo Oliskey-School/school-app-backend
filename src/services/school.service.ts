@@ -1,0 +1,34 @@
+import { supabase } from '../config/supabase';
+
+export class SchoolService {
+    static async createSchool(data: any) {
+        const { data: school, error } = await supabase
+            .from('schools')
+            .insert([data])
+            .select()
+            .single();
+
+        if (error) throw new Error(error.message);
+        return school;
+    }
+
+    static async getAllSchools() {
+        const { data: schools, error } = await supabase
+            .from('schools')
+            .select('*');
+
+        if (error) throw new Error(error.message);
+        return schools;
+    }
+
+    static async getSchoolById(id: string) {
+        const { data: school, error } = await supabase
+            .from('schools')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (error) throw new Error(error.message);
+        return school;
+    }
+}
