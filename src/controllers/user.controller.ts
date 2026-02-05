@@ -22,3 +22,21 @@ export const createUser = async (req: AuthRequest, res: Response) => {
         res.status(400).json({ message: error.message });
     }
 };
+
+export const getUserById = async (req: AuthRequest, res: Response) => {
+    try {
+        const result = await UserService.getUserById(req.user.school_id, req.params.id as string);
+        res.json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const updateUser = async (req: AuthRequest, res: Response) => {
+    try {
+        const result = await UserService.updateUser(req.user.school_id, req.params.id as string, req.body);
+        res.json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};

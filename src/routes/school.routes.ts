@@ -12,5 +12,7 @@ const router = Router();
 
 router.post('/', SchoolController.createSchool); // Public registration
 router.get('/', authenticate, requireRole(['SuperAdmin']), SchoolController.listSchools);
+router.get('/:id', authenticate, SchoolController.getSchoolById);
+router.put('/:id', authenticate, SchoolController.updateSchool);
 
 export default router;

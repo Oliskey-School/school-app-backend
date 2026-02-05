@@ -31,4 +31,15 @@ export class SchoolService {
         if (error) throw new Error(error.message);
         return school;
     }
+    static async updateSchool(id: string, updates: any) {
+        const { data: school, error } = await supabase
+            .from('schools')
+            .update(updates)
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error) throw new Error(error.message);
+        return school;
+    }
 }

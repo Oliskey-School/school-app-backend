@@ -9,6 +9,8 @@ router.use(authenticate);
 router.use(requireTenant);
 
 router.get('/', UserController.getUsers);
+router.get('/:id', UserController.getUserById);
+router.put('/:id', UserController.updateUser);
 router.post('/', UserController.createUser);
 
 export default router;

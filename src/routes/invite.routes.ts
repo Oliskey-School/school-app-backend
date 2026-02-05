@@ -5,12 +5,12 @@ const router = Router();
 
 // Initialize Supabase Admin client (with service_role key)
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY || '';
 
 // Lazy initialization to prevent server crash
 const getSupabaseAdmin = () => {
     if (!supabaseUrl || !supabaseServiceKey) {
-        console.error('Missing Supabase credentials for admin operations (SUPABASE_SERVICE_ROLE_KEY)');
+        console.error('Missing Supabase credentials for admin operations (SUPABASE_SERVICE_KEY)');
         throw new Error('Supabase service role key is not configured');
     }
 
