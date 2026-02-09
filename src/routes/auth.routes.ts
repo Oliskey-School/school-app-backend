@@ -6,6 +6,7 @@ const router = Router();
 
 router.post('/signup', AuthController.signup);
 router.post('/login', AuthController.login);
+router.post('/create-user', AuthController.createUser);
 
 // Verify token endpoint
 router.get('/verify', authenticate, (req, res) => {

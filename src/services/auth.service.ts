@@ -66,4 +66,65 @@ export class AuthService {
 
         return { user, token };
     }
+    static async createUser(data: any) {
+        // 1. Hash Password
+        const hashedPassword = await bcrypt.hash(data.password, 10);
+
+        // 2. Create Supabase Auth User (Auto-confirmed)
+        const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+            email: data.email,
+            password: data.password,
+            email_confirm: true,
+            user_metadata: {
+                full_name: data.full_name,
+                role: data.role,
+                school_id: data.school_id,
+                username: data.username
+            }
+        });
+
+        if (authError) throw new Error(`Supabase Auth Error: ${authError.message}`);
+        const userId = authData.user.id;
+
+        // 3. Upsert into public.users (Sync ID & Hash)
+        // Using upsert to handle potential trigger race conditions
+        const { error: userError } = await supabase
+            .from('users')
+            .upsert({
+                id: userId,
+                email: data.email,
+                password_hash: hashedPassword,
+                role: data.role,
+                school_id: data.school_id,
+                full_name: data.full_name,
+                name: data.full_name
+            });
+
+        if (userError) {
+            // Fallback: If ID mismatch (e.g., users.id is int), try letting DB generate ID
+            const { error: retryError } = await supabase.from('users').insert({
+                email: data.email,
+                password_hash: hashedPassword,
+                role: data.role,
+                school_id: data.school_id,
+                full_name: data.full_name
+            });
+            if (retryError) throw new Error(`User DB Error: ${userError.message}`);
+        }
+
+        // 4. Update auth_accounts (for username login)
+        const { error: accountError } = await supabase
+            .from('auth_accounts')
+            .upsert({
+                username: data.username,
+                email: data.email,
+                school_id: data.school_id,
+                is_verified: true,
+                user_id: userId
+            });
+
+        if (accountError) console.warn('Auth Account Sync Warning:', accountError.message);
+
+        return { id: userId, email: data.email, username: data.username };
+    }
 }

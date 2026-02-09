@@ -19,3 +19,13 @@ export const signup = async (req: Request, res: Response) => {
         res.status(400).json({ message: error.message });
     }
 };
+
+export const createUser = async (req: Request, res: Response) => {
+    try {
+        const user = await AuthService.createUser(req.body);
+        res.status(201).json(user);
+    } catch (error: any) {
+        console.error('Create User Error:', error);
+        res.status(400).json({ message: error.message });
+    }
+};
