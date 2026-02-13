@@ -13,6 +13,9 @@ export const enrollStudent = async (req: AuthRequest, res: Response) => {
         res.status(201).json(result);
     } catch (error: any) {
         console.error('Enrollment controller error:', error);
+        if (error.message.includes('required for enrollment')) {
+            return res.status(400).json({ message: error.message });
+        }
         res.status(500).json({ message: error.message });
     }
 };

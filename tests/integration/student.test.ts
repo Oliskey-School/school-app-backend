@@ -77,16 +77,12 @@ describe('Integration: Student Enrollment API', () => {
         const incompletePayload = { ...validPayload };
         delete (incompletePayload as any).firstName;
 
-        // Since the current controller doesn't have a 400 guard for firstName, 
-        // it will likely throw a 500 when Supabase fails or the service code breaks.
-        // We'll test for the error propagation.
-
         const response = await request(app)
             .post('/api/students/enroll')
             .send(incompletePayload);
 
-        // Current status is 500 because of missing validation, but we'll document this
-        expect(response.status).toBe(500);
+        expect(response.status).toBe(400);
+        expect(response.body.message).toContain('required for enrollment');
     });
 
     it('should handle conflict when student email exists (Edge Case: 409)', async () => {

@@ -28,14 +28,16 @@ export class AuthService {
 
     static async login(email: string, password: string) {
         // 0. Handle Demo Login
-        if (email.includes('demo') && password === 'demo123') {
-            // Return a mock demo user
+        const isDemoAccount = email.endsWith('@demo.com') || email.includes('demo_');
+        if (isDemoAccount && password === 'password123') {
+            // Return a mock demo user based on the email
+            const role = email.split('@')[0].replace('demo_', '');
             const demoUser = {
-                id: 'demo-user-id',
+                id: `demo-${role}-id`,
                 email: email,
-                role: email.includes('admin') ? 'Admin' : 'Student',
-                school_id: 'demo-school-id',
-                full_name: 'Demo User'
+                role: role.charAt(0).toUpperCase() + role.slice(1),
+                school_id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1',
+                full_name: `Demo ${role.charAt(0).toUpperCase() + role.slice(1)}`
             };
             const token = jwt.sign(demoUser, config.jwtSecret, { expiresIn: '1d' });
             return { user: demoUser, token };

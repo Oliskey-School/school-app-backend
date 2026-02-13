@@ -14,6 +14,10 @@ export class StudentService {
             documentUrls
         } = enrollmentData;
 
+        if (!firstName || !lastName) {
+            throw new Error('First name and last name are required for enrollment.');
+        }
+
         const fullName = `${firstName} ${lastName}`;
         const studentEmail = `${firstName.toLowerCase()}.${lastName.toLowerCase()}${Math.floor(Math.random() * 1000)}@student.school.com`;
 
@@ -75,11 +79,11 @@ export class StudentService {
         // 4. Handle Academic Tracks
         const tracks = [];
         if (curriculumType === 'Nigerian' || curriculumType === 'Both') {
-            const { data: nigerian } = await supabase.from('curricula').select('id').eq('name', 'Nigerian').maybeSingle();
+            const { data: nigerian } = await supabase.from('curricula').select('id').eq('name', 'Nigerian').single();
             if (nigerian) tracks.push({ student_id: student.id, curriculum_id: nigerian.id, status: 'Active', school_id: schoolId });
         }
         if (curriculumType === 'British' || curriculumType === 'Both') {
-            const { data: british } = await supabase.from('curricula').select('id').eq('name', 'British').maybeSingle();
+            const { data: british } = await supabase.from('curricula').select('id').eq('name', 'British').single();
             if (british) tracks.push({ student_id: student.id, curriculum_id: british.id, status: 'Active', school_id: schoolId });
         }
         if (tracks.length > 0) {
@@ -89,7 +93,7 @@ export class StudentService {
         // 5. Handle Parent (Simple creation for now)
         if (parentEmail) {
             // Check if parent user exists
-            let { data: parentUser } = await supabase.from('users').select('id').eq('email', parentEmail).maybeSingle();
+            let { data: parentUser } = await supabase.from('users').select('id').eq('email', parentEmail).single();
             let parentId;
 
             if (!parentUser) {
@@ -121,7 +125,7 @@ export class StudentService {
                     parentId = newParent?.id;
                 }
             } else {
-                const { data: existingParent } = await supabase.from('parents').select('id').eq('user_id', parentUser.id).maybeSingle();
+                const { data: existingParent } = await supabase.from('parents').select('id').eq('user_id', parentUser.id).single();
                 parentId = existingParent?.id;
             }
 
