@@ -1,0 +1,1 @@
+{"version":3,"file":"bus.service.d.ts","sourceRoot":"","sources":["../../src/services/bus.service.ts"],"names":[],"mappings":"AAEA,qBAAa,UAAU;WACN,QAAQ,CAAC,QAAQ,EAAE,MAAM;WAWzB,SAAS,CAAC,QAAQ,EAAE,MAAM,EAAE,OAAO,EAAE,GAAG;WAWxC,SAAS,CAAC,QAAQ,EAAE,MAAM,EAAE,KAAK,EAAE,MAAM,EAAE,OAAO,EAAE,GAAG;WAavD,SAAS,CAAC,QAAQ,EAAE,MAAM,EAAE,KAAK,EAAE,MAAM;CAUzD"}

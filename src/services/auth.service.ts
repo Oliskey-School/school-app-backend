@@ -1,132 +1,199 @@
-import jwt from 'jsonwebtoken';
-import bcrypt from 'bcryptjs';
-import { supabase } from '../config/supabase';
-import { config } from '../config/env';
+import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
+import { supabase } from "../config/supabase";
+import { config } from "../config/env";
 
 export class AuthService {
-    static async signup(data: any) {
-        // 1. Check if user exists (mocked or real DB check)
-        // 2. Hash password
-        const hashedPassword = await bcrypt.hash(data.password, 10);
+  static async signup(data: any) {
+    const email = data.email?.trim?.().toLowerCase?.();
+    const password = data.password;
+    const role = data.role || "Student";
+    const school_id = data.school_id;
+    const full_name = data.full_name;
 
-        // 3. Create user in DB
-        const { data: user, error } = await supabase
-            .from('users')
-            .insert([{
-                email: data.email,
-                password_hash: hashedPassword, // Storing hash, NOT plain password
-                role: data.role || 'Student',
-                school_id: data.school_id,
-                full_name: data.full_name
-            }])
-            .select()
-            .single();
-
-        if (error) throw new Error(error.message);
-        return user;
+    if (!email || !password) {
+      throw new Error("Email and password are required");
     }
 
-    static async login(email: string, password: string) {
-        // 0. Handle Demo Login
-        const isDemoAccount = email.endsWith('@demo.com') || email.includes('demo_');
-        if (isDemoAccount && password === 'password123') {
-            // Return a mock demo user based on the email
-            const role = email.split('@')[0].replace('demo_', '');
-            const demoUser = {
-                id: `demo-${role}-id`,
-                email: email,
-                role: role.charAt(0).toUpperCase() + role.slice(1),
-                school_id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1',
-                full_name: `Demo ${role.charAt(0).toUpperCase() + role.slice(1)}`
-            };
-            const token = jwt.sign(demoUser, config.jwtSecret, { expiresIn: '1d' });
-            return { user: demoUser, token };
-        }
+    // 1. Create Supabase Auth user (service role key required)
+    const { data: authData, error: authError } =
+      await supabase.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: {
+          full_name,
+          role,
+          school_id,
+        },
+      });
 
-        // 1. Find user
-        const { data: user, error } = await supabase
-            .from('users')
-            .select('*')
-            .eq('email', email)
-            .single();
-
-        if (error || !user) throw new Error('Invalid credentials');
-
-        // 2. Compare password
-        const isMatch = await bcrypt.compare(password, user.password_hash);
-        if (!isMatch) throw new Error('Invalid credentials');
-
-        // 3. Generate Token
-        const payload = {
-            id: user.id,
-            email: user.email,
-            role: user.role,
-            school_id: user.school_id
-        };
-
-        const token = jwt.sign(payload, config.jwtSecret, { expiresIn: '1d' });
-
-        return { user, token };
+    if (authError) {
+      throw new Error(`Supabase Auth Error: ${authError.message}`);
     }
-    static async createUser(data: any) {
-        // 1. Hash Password
-        const hashedPassword = await bcrypt.hash(data.password, 10);
 
-        // 2. Create Supabase Auth User (Auto-confirmed)
-        const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-            email: data.email,
-            password: data.password,
-            email_confirm: true,
-            user_metadata: {
-                full_name: data.full_name,
-                role: data.role,
-                school_id: data.school_id,
-                username: data.username
-            }
-        });
+    const userId = authData.user.id;
 
-        if (authError) throw new Error(`Supabase Auth Error: ${authError.message}`);
-        const userId = authData.user.id;
+    // 2. Upsert profile record in public.users
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const { data: user, error } = await supabase
+      .from("users")
+      .upsert({
+        id: userId,
+        email,
+        password_hash: hashedPassword,
+        role,
+        school_id,
+        full_name,
+        name: full_name,
+      })
+      .select()
+      .single();
 
-        // 3. Upsert into public.users (Sync ID & Hash)
-        // Using upsert to handle potential trigger race conditions
-        const { error: userError } = await supabase
-            .from('users')
-            .upsert({
-                id: userId,
-                email: data.email,
-                password_hash: hashedPassword,
-                role: data.role,
-                school_id: data.school_id,
-                full_name: data.full_name,
-                name: data.full_name
-            });
-
-        if (userError) {
-            // Fallback: If ID mismatch (e.g., users.id is int), try letting DB generate ID
-            const { error: retryError } = await supabase.from('users').insert({
-                email: data.email,
-                password_hash: hashedPassword,
-                role: data.role,
-                school_id: data.school_id,
-                full_name: data.full_name
-            });
-            if (retryError) throw new Error(`User DB Error: ${userError.message}`);
-        }
-
-        // 4. Update auth_accounts (for username login)
-        const { error: accountError } = await supabase
-            .from('auth_accounts')
-            .upsert({
-                username: data.username,
-                email: data.email,
-                school_id: data.school_id,
-                is_verified: true,
-                user_id: userId
-            });
-
-        if (accountError) console.warn('Auth Account Sync Warning:', accountError.message);
-
-        return { id: userId, email: data.email, username: data.username };
+    if (error) {
+      throw new Error(error.message);
     }
+
+    // 3. Create a session token so the caller can use it for auth
+    const { data: sessionData, error: signInError } =
+      await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+    if (signInError || !sessionData?.session?.access_token) {
+      throw new Error(
+        `Supabase Sign-in Error: ${signInError?.message || "No session returned"}`,
+      );
+    }
+
+    const token = sessionData.session.access_token;
+
+    return { user, token };
+  }
+
+  static async login(email: string, password: string) {
+    const normalizedEmail = email?.trim?.().toLowerCase?.();
+
+    // 0. Handle Demo Login
+    const isDemoAccount =
+      normalizedEmail.endsWith("@demo.com") || normalizedEmail.includes("demo_");
+    if (isDemoAccount && password === "password123") {
+      const role = normalizedEmail.split("@")[0].replace("demo_", "");
+      const demoUser = {
+        id: `demo-${role}-id`,
+        email: normalizedEmail,
+        role: role.charAt(0).toUpperCase() + role.slice(1),
+        school_id: "d0ff3e95-9b4c-4c12-989c-e5640d3cacd1",
+        full_name: `Demo ${role.charAt(0).toUpperCase() + role.slice(1)}`,
+      };
+      const token = jwt.sign(demoUser, config.jwtSecret, { expiresIn: "1d" });
+      return { user: demoUser, token };
+    }
+
+    // 1. Authenticate with Supabase Auth
+    const { data: authData, error: authError } =
+      await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password,
+      });
+
+    if (authError || !authData?.session) {
+      throw new Error("Invalid credentials");
+    }
+
+    const token = authData.session.access_token;
+    const userId = authData.user?.id;
+
+    // 2. Fetch profile from public.users (fallback if missing)
+    const { data: user, error: userError } = await supabase
+      .from("users")
+      .select("*")
+      .eq("id", userId)
+      .single();
+
+    if (userError || !user) {
+      throw new Error("User profile not found");
+    }
+
+    return { user, token };
+  }
+  static async createUser(data: any) {
+    const email = data.email?.trim?.().toLowerCase?.();
+    const password = data.password;
+    const role = data.role || "Student";
+    const school_id = data.school_id;
+    const full_name = data.full_name;
+
+    if (!email || !password) {
+      throw new Error("Email and password are required");
+    }
+    if (!school_id) {
+      throw new Error("school_id is required");
+    }
+    if (!full_name) {
+      throw new Error("full_name is required");
+    }
+
+    // 1. Hash Password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // 2. Create Supabase Auth User (Auto-confirmed)
+    const { data: authData, error: authError } =
+      await supabase.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: {
+          full_name,
+          role,
+          school_id,
+          username: data.username,
+        },
+      });
+
+    if (authError) throw new Error(`Supabase Auth Error: ${authError.message}`);
+    const userId = authData.user.id;
+
+    // 3. Upsert into public.users (Sync ID & Hash)
+    // Using upsert to handle potential trigger race conditions
+    const { error: userError } = await supabase.from("users").upsert({
+      id: userId,
+      email,
+      password_hash: hashedPassword,
+      role,
+      school_id,
+      full_name,
+      name: full_name,
+    });
+
+    if (userError) {
+      // Fallback: If ID mismatch (e.g., users.id is int), try letting DB generate ID
+      const { error: retryError } = await supabase.from("users").insert({
+        email,
+        password_hash: hashedPassword,
+        role,
+        school_id,
+        full_name,
+      });
+      if (retryError)
+        throw new Error(`User DB Error: ${retryError.message || userError.message}`);
+    }
+
+    // 4. Update auth_accounts (for username login)
+    const { error: accountError } = await supabase
+      .from("auth_accounts")
+      .upsert({
+        username: data.username,
+        email,
+        school_id,
+        is_verified: true,
+        user_id: userId,
+      });
+
+    if (accountError)
+      console.warn("Auth Account Sync Warning:", accountError.message);
+
+    return { id: userId, email, username: data.username };
+  }
 }

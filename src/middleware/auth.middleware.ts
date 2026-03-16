@@ -1,49 +1,75 @@
-import { Request, Response, NextFunction } from 'express';
-import { supabase } from '../config/supabase';
-import { config } from '../config/env';
+import { Request, Response, NextFunction } from "express";
+import jwt from "jsonwebtoken";
+import { supabase } from "../config/supabase";
+import { config } from "../config/env";
 
 export interface AuthRequest extends Request {
-    user?: any;
+  user?: any;
 }
 
-export const authenticate = async (req: AuthRequest, res: Response, next: NextFunction) => {
-    const authHeader = req.headers.authorization;
+export const authenticate = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+) => {
+  const authHeader = req.headers.authorization;
 
-    if (!authHeader) {
-        console.warn('⚠️ [Auth] No authorization header provided');
-        return res.status(401).json({ message: 'No token provided' });
+  if (!authHeader) {
+    console.warn("⚠️ [Auth] No authorization header provided");
+    return res.status(401).json({ message: "No token provided" });
+  }
+
+  const token = authHeader.split(" ")[1];
+
+  try {
+    // First try Supabase token validation
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser(token);
+
+    if (user) {
+      // Fetch additional profile data (role, school_id) to populate req.user
+      // Prefer `users` table (used by signup flow). Fallback to `profiles` for older schemas.
+      const { data: profileFromUsers, error: usersProfileError } = await supabase
+        .from("users")
+        .select("*")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      const { data: profileFromProfiles, error: profilesProfileError } =
+        !profileFromUsers
+          ? await supabase
+              .from("profiles")
+              .select("*")
+              .eq("id", user.id)
+              .maybeSingle()
+          : { data: null, error: null };
+
+      if (usersProfileError || profilesProfileError) {
+        console.warn(
+          "⚠️ [Auth] Failed to load profile:",
+          usersProfileError?.message || profilesProfileError?.message,
+        );
+      }
+
+      const profile = profileFromUsers ?? profileFromProfiles;
+
+      req.user = {
+        ...user,
+        ...profile,
+        school_id: profile?.school_id,
+      };
+
+      return next();
     }
 
-    const token = authHeader.split(' ')[1];
-
-    try {
-        // Verify token with Supabase Auth API
-        const { data: { user }, error } = await supabase.auth.getUser(token);
-
-        if (error || !user) {
-            console.error('❌ [Auth Error] Token validation failed:', error?.message);
-            return res.status(401).json({ message: 'Invalid token' });
-        }
-
-        console.log(`✅ [Auth Success] User: ${user.email} (${user.role})`);
-
-        // Fetch additional profile data (role, school_id) to populate req.user
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', user.id)
-            .single();
-
-        // Attach user + profile data to request
-        req.user = {
-            ...user,
-            ...profile, // This adds school_id, role, etc.
-            school_id: profile?.school_id // Ensure explicit access
-        };
-
-        next();
-    } catch (error) {
-        console.error('Auth Exception:', error);
-        return res.status(401).json({ message: 'Authentication failed' });
-    }
+    // If Supabase auth fails, fall back to local JWT (demo tokens)
+    const decoded = jwt.verify(token, config.jwtSecret) as any;
+    req.user = decoded;
+    return next();
+  } catch (error: any) {
+    console.error("Auth Exception:", error.message ?? error);
+    return res.status(401).json({ message: "Authentication failed" });
+  }
 };

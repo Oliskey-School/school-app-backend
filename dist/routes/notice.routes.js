@@ -1,0 +1,11 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const notice_controller_1 = require("../controllers/notice.controller");
+const auth_middleware_1 = require("../middleware/auth.middleware");
+const router = (0, express_1.Router)();
+router.get('/', auth_middleware_1.authenticate, notice_controller_1.getNotices);
+router.post('/', auth_middleware_1.authenticate, notice_controller_1.createNotice);
+router.delete('/:id', auth_middleware_1.authenticate, notice_controller_1.deleteNotice);
+exports.default = router;
+//# sourceMappingURL=notice.routes.js.map
