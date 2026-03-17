@@ -4,6 +4,7 @@ import { authenticate } from '../middleware/auth.middleware';
 
 const router = Router();
 
+router.post('/school-signup', AuthController.schoolSignup);
 router.post('/signup', AuthController.signup);
 router.post('/login', AuthController.login);
 router.post('/create-user', AuthController.createUser);
@@ -11,6 +12,10 @@ router.post('/create-user', AuthController.createUser);
 // Verify token endpoint
 router.get('/verify', authenticate, (req, res) => {
     res.json({ message: 'Valid token', user: (req as any).user });
+});
+
+router.get('/me', authenticate, (req, res) => {
+    res.json({ user: (req as any).user });
 });
 
 export default router;

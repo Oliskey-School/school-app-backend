@@ -5,6 +5,7 @@ export const config = {
     port: process.env.PORT || 5000,
     jwtSecret: process.env.JWT_SECRET || 'fallback-dev-secret-do-not-use-in-prod',
     supabaseUrl: process.env.SUPABASE_URL || '',
+    supabaseAnonKey: process.env.SUPABASE_ANON_KEY || '',
     supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY || '',
     env: process.env.NODE_ENV || 'development'
 };
@@ -18,6 +19,10 @@ if (config.jwtSecret === 'fallback-dev-secret-do-not-use-in-prod') {
     console.warn('⚠️  WARNING: Using fallback JWT secret. Security is compromised.');
 }
 
+if (!config.supabaseUrl || !config.supabaseAnonKey) {
+    console.warn('⚠️  Supabase URL or Anon Key missing. Public auth (OTP/link) and RLS features may fail.');
+}
+
 if (!config.supabaseUrl || !config.supabaseServiceKey) {
-    console.warn('⚠️  Supabase URL or Service Key missing. Realtime and DB features may fail.');
+    console.warn('⚠️  Supabase URL or Service Key missing. Admin provisioning features may fail.');
 }

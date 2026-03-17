@@ -1,9 +1,57 @@
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
-import { supabase } from "../config/supabase";
+import { supabase, supabaseAnon } from "../config/supabase";
 import { config } from "../config/env";
 
 export class AuthService {
+  static async schoolSignup(data: any) {
+    const email = data.email?.trim?.().toLowerCase?.();
+    const password = data.password;
+    const school_name = data.school_name;
+    const full_name = data.full_name;
+    const motto = data.motto;
+    const address = data.address;
+
+    if (!email || !password) {
+      throw new Error("Email and password are required");
+    }
+    if (!school_name) {
+      throw new Error("school_name is required");
+    }
+    if (!full_name) {
+      throw new Error("full_name is required");
+    }
+
+    // Use anon key so Supabase sends email OTP/link verification.
+    // DB trigger handle_new_school_signup will create school/branch/admin profile based on metadata.
+    const { data: signUpData, error } = await supabaseAnon.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          signup_type: "new_school",
+          school_name,
+          full_name,
+          motto,
+          address,
+          role: "admin",
+        },
+      },
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    // If email confirmation is enabled, user may be null and session may be null.
+    // Frontend should prompt: "Check your email to verify".
+    return {
+      user: signUpData.user,
+      session: signUpData.session,
+      needs_email_verification: !signUpData.session,
+    };
+  }
+
   static async signup(data: any) {
     const email = data.email?.trim?.().toLowerCase?.();
     const password = data.password;

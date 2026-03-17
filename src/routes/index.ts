@@ -12,6 +12,7 @@ import classRoutes from './class.routes';
 import parentRoutes from './parent.routes';
 import noticeRoutes from './notice.routes';
 import attendanceRoutes from './attendance.routes';
+import pendingAccountsRoutes from './pendingAccounts.routes';
 
 const router = Router();
 
@@ -27,6 +28,7 @@ router.use('/classes', classRoutes);
 router.use('/parents', parentRoutes);
 router.use('/notices', noticeRoutes);
 router.use('/attendance', attendanceRoutes);
+router.use('/pending-accounts', pendingAccountsRoutes);
 router.use('/', inviteRoutes);
 
 export default router;
